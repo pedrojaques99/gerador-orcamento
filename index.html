@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Orçamento 2.0</title>
+    
+    <!-- Carregar bibliotecas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    
+    <!-- Configurar PDF.js worker -->
+    <script>
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+    <style>
+        :root {
+            --accent-color: #bfff38;
+            --bg-color: #121212;
+            --text-color: #ffffff;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: var(--accent-color);
+            text-align: center;
+        }
+
+        .main-container {
+            display: flex;
+            gap: 40px;
+            margin: 40px auto;
+            padding: 0 20px;
+            height: auto;
+            min-height: calc(100vh - 120px);
+        }
+
+        .left-panel {
+            flex: 0.3;
+            min-width: 400px;
+            max-width: 500px;
+            background: #1a1a1a;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            height: 100%;
+        }
+
+        .right-panel {
+            flex: 0.7;
+            background: #1a1a1a;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            height: 100%;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .upload-section {
+            background-color: #242424;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 40px;
+        }
+
+        .form-section {
+            background-color: #242424;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 40px;
+        }
+
+        h1, h2 {
+            margin-bottom: 25px;
+        }
+
+        .text-field-marker {
+            position: absolute;
+            background: rgba(191, 255, 56, 0.15);
+            border: 2px solid var(--accent-color);
+            border-radius: 8px;
+            padding: 8px 12px;
+            cursor: move;
+            min-width: 100px;
+            min-height: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(2px);
+            z-index: 1;
+            pointer-events: auto;
+        }
+
+        .text-field-marker .remove-field {
+            background: #ff3838;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            width: 24px;
+            height: 24px;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(255, 56, 56, 0.2);
+        }
+
+        .text-field-marker .remove-field:hover {
+            background-color: #ff5252;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(255, 56, 56, 0.3);
+        }
+
+        .text-style-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            background: #2d2d2d;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        input[type="color"] {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            background: none;
+        }
+
+        input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+            border: none;
+            border-radius: 50%;
+        }
+
+        input[type="color"]::-webkit-color-swatch {
+            border: 2px solid #404040;
+            border-radius: 50%;
+        }
+
+        input[type="color"]::-moz-color-swatch {
+            border: 2px solid #404040;
+            border-radius: 50%;
+        }
+
+        .color-picker-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .color-picker-container label {
+            font-size: 14px;
+            color: var(--text-color);
+        }
+
+        .zoom-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            background: #2d2d2d;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .zoom-controls input[type="range"] {
+            flex: 1;
+            height: 4px;
+            border-radius: 2px;
+            background: #404040;
+            cursor: pointer;
+            -webkit-appearance: none;
+        }
+
+        .zoom-controls input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--accent-color);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .zoom-controls span {
+            min-width: 60px;
+            text-align: right;
+        }
+
+        .field-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            background: #2d2d2d;
+            padding: 15px;
+            border-radius: 12px;
+            margin-top: 20px;
+        }
+
+        .servico-item {
+            background-color: #242424;
+            padding: 25px;
+            margin-bottom: 40px;
+            border-radius: 12px;
+            border: 1px solid #404040;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .servico-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .servico-header h3 {
+            margin: 0;
+            color: var(--accent-color);
+            font-size: 16px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 25px;
+        }
+
+        .input-with-button {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+            margin-bottom: 25px;
+        }
+
+        .input-with-button .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+
+        .add-field-btn {
+            background-color: var(--accent-color);
+            color: var(--bg-color);
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .add-field-btn:hover {
+            background-color: #c8ff5c;
+            transform: translateY(-2px);
+        }
+
+        .form-group label {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--accent-color);
+        }
+
+        input, select, textarea {
+            background-color: #2d2d2d;
+            border: 1px solid #404040;
+            border-radius: 8px;
+            color: var(--text-color);
+            padding: 12px 15px;
+            font-size: 14px;
+            width: 100%;
+            box-sizing: border-box;
+            transition: all 0.2s ease;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--accent-color);
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(191, 255, 56, 0.2);
+        }
+
+        .btn {
+            background-color: var(--accent-color);
+            color: var(--bg-color);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 2px 8px rgba(191, 255, 56, 0.2);
+            margin: 10px 0;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(191, 255, 56, 0.3);
+            background-color: #c8ff5c;
+        }
+
+        .btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(191, 255, 56, 0.2);
+        }
+
+        .bold-toggle.active {
+            background-color: #8bbc2a;
+            color: white;
+        }
+
+        .remove-servico {
+            background-color: #ff3838;
+            color: white;
+            margin-top: 10px;
+        }
+
+        .remove-servico:hover {
+            background-color: #ff5252;
+            box-shadow: 0 4px 12px rgba(255, 56, 56, 0.3);
+        }
+
+        /* Container do PDF */
+        .pdf-container {
+            position: relative;
+            background: #242424;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            overflow: auto;
+            height: calc(100vh - 250px);
+            display: flex;
+            justify-content: center;
+        }
+
+        #pdfViewer {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            position: relative;
+        }
+
+        .pdf-page {
+            background: white;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+            position: relative;
+            display: inline-block;
+        }
+
+        .loading, .error {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: var(--accent-color);
+            font-size: 16px;
+            text-align: center;
+        }
+
+        .error {
+            color: #ff3838;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .config-section {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #addServico {
+            margin: 20px 0 35px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Gerador de Orçamento</h1>
+        
+        <div class="main-container">
+            <div class="left-panel">
+                <div class="upload-section">
+                    <h2>Upload do PDF</h2>
+                    <input type="file" accept=".pdf" id="pdfUpload">
+                    <button class="btn" id="loadPdfBtn">Carregar PDF</button>
+                </div>
+
+                <div class="form-section">
+                    <h2>Dados do Orçamento</h2>
+                    <form id="orcamentoForm">
+                        <div class="input-with-button">
+                            <div class="form-group">
+                                <label for="cliente">Nome do Cliente</label>
+                                <input type="text" id="cliente" required>
+                            </div>
+                            <button type="button" class="add-field-btn" data-field="cliente">
+                                <i>+</i>
+                            </button>
+                        </div>
+
+                        <div class="input-with-button">
+                            <div class="form-group">
+                                <label for="data">Data</label>
+                                <input type="date" id="data" required>
+                            </div>
+                            <button type="button" class="add-field-btn" data-field="data">
+                                <i>+</i>
+                            </button>
+                        </div>
+
+                        <div id="servicosContainer">
+                            <div class="servico-item">
+                                <div class="servico-header">
+                                    <h3>Serviço 1</h3>
+                                </div>
+                                <div class="input-with-button">
+                                    <div class="form-group">
+                                        <label>Nome do Serviço</label>
+                                        <input type="text" class="servico-nome" required>
+                                    </div>
+                                    <button type="button" class="add-field-btn" data-field="servico_1_nome">
+                                        <i>+</i>
+                                    </button>
+                                </div>
+                                <div class="input-with-button">
+                                    <div class="form-group">
+                                        <label>Descrição</label>
+                                        <textarea class="servico-descricao" rows="2" required></textarea>
+                                    </div>
+                                    <button type="button" class="add-field-btn" data-field="servico_1_descricao">
+                                        <i>+</i>
+                                    </button>
+                                </div>
+                                <div class="input-with-button">
+                                    <div class="form-group">
+                                        <label>Valor</label>
+                                        <input type="number" class="servico-valor" step="0.01" required>
+                                    </div>
+                                    <button type="button" class="add-field-btn" data-field="servico_1_valor">
+                                        <i>+</i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button type="button" class="btn" id="addServico">+ Adicionar Serviço</button>
+
+                        <div class="input-with-button">
+                            <div class="form-group">
+                                <label for="prazo">Prazo</label>
+                                <input type="text" id="prazo" required>
+                            </div>
+                            <button type="button" class="add-field-btn" data-field="prazo">
+                                <i>+</i>
+                            </button>
+                        </div>
+
+                        <button type="submit" class="btn">Gerar Orçamento</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="right-panel">
+                <div class="config-section">
+                    <h2>Configuração do Layout</h2>
+                    <div class="zoom-controls">
+                        <input type="range" id="zoomControl" min="50" max="200" value="100">
+                        <span id="zoomValue">100%</span>
+                    </div>
+                    <div class="text-style-controls">
+                        <select id="fontFamily">
+                            <option value="Arial">Arial</option>
+                            <option value="Times New Roman">Times New Roman</option>
+                            <option value="Helvetica">Helvetica</option>
+                            <option value="Courier">Courier</option>
+                        </select>
+                        <input type="number" id="fontSize" value="12" min="8" max="72" step="1">
+                        <button class="btn bold-toggle" id="boldToggle">B</button>
+                        <div class="color-picker-container">
+                            <input type="color" id="textColor" value="#d1d1d1">
+                        </div>
+                    </div>
+                    <div class="pdf-container">
+                        <div id="pdfViewer"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variáveis globais
+        let currentPdf = null;
+        let zoomLevel = 100;
+        let isBold = false;
+
+        // Elementos do DOM
+        const pdfViewer = document.getElementById('pdfViewer');
+        const pdfUpload = document.getElementById('pdfUpload');
+        const loadPdfBtn = document.getElementById('loadPdfBtn');
+        const zoomControl = document.getElementById('zoomControl');
+        const fontFamily = document.getElementById('fontFamily');
+        const fontSize = document.getElementById('fontSize');
+        const textColor = document.getElementById('textColor');
+        const boldToggle = document.getElementById('boldToggle');
+
+        // Toggle negrito
+        boldToggle.addEventListener('click', () => {
+            isBold = !isBold;
+            boldToggle.classList.toggle('active');
+        });
+
+        // Carregar PDF
+        loadPdfBtn.addEventListener('click', async () => {
+            const file = pdfUpload.files[0];
+            if (!file) {
+                alert('Por favor, selecione um arquivo PDF');
+                return;
+            }
+
+            try {
+                pdfViewer.innerHTML = '<div class="loading">Carregando PDF...</div>';
+                const arrayBuffer = await file.arrayBuffer();
+                const loadingTask = pdfjsLib.getDocument(arrayBuffer);
+                currentPdf = await loadingTask.promise;
+                await renderPage(1);
+            } catch (error) {
+                console.error('Erro ao carregar PDF:', error);
+                pdfViewer.innerHTML = '<div class="error">Erro ao carregar PDF</div>';
+            }
+        });
+
+        // Renderizar página do PDF
+        async function renderPage(pageNumber) {
+            if (!currentPdf) return;
+
+            try {
+                const page = await currentPdf.getPage(pageNumber);
+                const scale = zoomLevel / 100;
+                const viewport = page.getViewport({ scale: 1.5 * scale });
+
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+
+                const renderContext = {
+                    canvasContext: context,
+                    viewport: viewport
+                };
+
+                pdfViewer.innerHTML = '';
+                const pdfPage = document.createElement('div');
+                pdfPage.className = 'pdf-page';
+                pdfPage.appendChild(canvas);
+                pdfViewer.appendChild(pdfPage);
+
+                await page.render(renderContext).promise;
+            } catch (error) {
+                console.error('Erro ao renderizar página:', error);
+                pdfViewer.innerHTML = '<div class="error">Erro ao renderizar página</div>';
+            }
+        }
+
+        // Controle de zoom
+        zoomControl.addEventListener('input', function() {
+            zoomLevel = parseInt(this.value);
+            document.getElementById('zoomValue').textContent = `${zoomLevel}%`;
+            if (currentPdf) {
+                renderPage(1);
+            }
+        });
+
+        // Função para tornar elementos arrastáveis
+        function makeDraggable(element) {
+            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+            element.onmousedown = dragMouseDown;
+
+            function dragMouseDown(e) {
+                if (e.target.className === 'remove-field') return;
+                e.preventDefault();
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                document.onmouseup = closeDragElement;
+                document.onmousemove = elementDrag;
+            }
+
+            function elementDrag(e) {
+                e.preventDefault();
+                pos1 = pos3 - e.clientX;
+                pos2 = pos4 - e.clientY;
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                element.style.top = (element.offsetTop - pos2) + "px";
+                element.style.left = (element.offsetLeft - pos1) + "px";
+            }
+
+            function closeDragElement() {
+                document.onmouseup = null;
+                document.onmousemove = null;
+            }
+        }
+
+        // Adicionar novo serviço
+        const servicosContainer = document.getElementById('servicosContainer');
+        const addServicoBtn = document.getElementById('addServico');
+        let servicoCount = 1;
+
+        addServicoBtn.addEventListener('click', () => {
+            servicoCount++;
+            const servicoItem = document.createElement('div');
+            servicoItem.className = 'servico-item';
+            servicoItem.innerHTML = `
+                <div class="servico-header">
+                    <h3>Serviço ${servicoCount}</h3>
+                    <button type="button" class="btn remove-servico">Remover</button>
+                </div>
+                <div class="input-with-button">
+                    <div class="form-group">
+                        <label>Nome do Serviço</label>
+                        <input type="text" class="servico-nome" required>
+                    </div>
+                    <button type="button" class="add-field-btn" data-field="servico_${servicoCount}_nome">
+                        <i>+</i>
+                    </button>
+                </div>
+                <div class="input-with-button">
+                    <div class="form-group">
+                        <label>Descrição</label>
+                        <textarea class="servico-descricao" rows="2" required></textarea>
+                    </div>
+                    <button type="button" class="add-field-btn" data-field="servico_${servicoCount}_descricao">
+                        <i>+</i>
+                    </button>
+                </div>
+                <div class="input-with-button">
+                    <div class="form-group">
+                        <label>Valor</label>
+                        <input type="number" class="servico-valor" step="0.01" required>
+                    </div>
+                    <button type="button" class="add-field-btn" data-field="servico_${servicoCount}_valor">
+                        <i>+</i>
+                    </button>
+                </div>
+            `;
+            servicosContainer.appendChild(servicoItem);
+            initializeFieldButtons();
+
+            servicoItem.querySelector('.remove-servico').addEventListener('click', () => {
+                servicoItem.remove();
+                const servicos = document.querySelectorAll('.servico-item');
+                servicos.forEach((servico, index) => {
+                    const numero = index + 1;
+                    servico.querySelector('h3').textContent = `Serviço ${numero}`;
+                    
+                    servico.querySelectorAll('.add-field-btn').forEach(btn => {
+                        const [prefix, _, tipo] = btn.dataset.field.split('_');
+                        btn.dataset.field = `servico_${numero}_${tipo}`;
+                    });
+                });
+                servicoCount = servicos.length;
+            });
+        });
+
+        // Adicionar função para atualizar opções do select
+        function updateFieldTypeOptions() {
+            const optgroup = fieldType.querySelector('optgroup[label="Serviços"]');
+            optgroup.innerHTML = '';
+            
+            for (let i = 1; i <= servicoCount; i++) {
+                optgroup.innerHTML += `
+                    <option value="servico_${i}_nome">Serviço ${i} - Nome</option>
+                    <option value="servico_${i}_descricao">Serviço ${i} - Descrição</option>
+                    <option value="servico_${i}_valor">Serviço ${i} - Valor</option>
+                `;
+            }
+        }
+
+        // Modificar a função de geração do PDF
+        const orcamentoForm = document.getElementById('orcamentoForm');
+        orcamentoForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!currentPdf) {
+                alert('Por favor, carregue um PDF primeiro');
+                return;
+            }
+
+            try {
+                const formData = {
+                    cliente: document.getElementById('cliente').value,
+                    data: document.getElementById('data').value,
+                    prazo: document.getElementById('prazo').value,
+                    servicos: Array.from(document.querySelectorAll('.servico-item')).map(item => ({
+                        nome: item.querySelector('.servico-nome').value,
+                        descricao: item.querySelector('.servico-descricao').value,
+                        valor: item.querySelector('.servico-valor').value
+                    }))
+                };
+
+                // Obter os bytes do PDF atual
+                const pdfBytes = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(new Uint8Array(reader.result));
+                    reader.readAsArrayBuffer(pdfUpload.files[0]);
+                });
+
+                // Carregar o PDF com PDF-Lib
+                const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
+                const pages = pdfDoc.getPages();
+                const firstPage = pages[0];
+
+                // Processar cada campo de texto
+                const textFields = document.querySelectorAll('.text-field-marker');
+                const font = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+                
+                for (const field of textFields) {
+                    const fieldType = field.getAttribute('data-field-type');
+                    const rect = field.getBoundingClientRect();
+                    const pdfRect = convertToPdfCoordinates(rect, firstPage);
+                    const fontSize = parseInt(field.getAttribute('data-font-size'));
+                    const color = field.getAttribute('data-text-color');
+                    const isBold = field.getAttribute('data-font-bold') === 'true';
+                    
+                    // Converter cor hex para RGB
+                    const rgbColor = hexToRGBForPDF(color);
+                    
+                    let text = '';
+                    if (fieldType === 'cliente') {
+                        text = formData.cliente;
+                    } else if (fieldType === 'data') {
+                        text = formData.data;
+                    } else if (fieldType === 'prazo') {
+                        text = formData.prazo;
+                    } else if (fieldType.startsWith('servico_')) {
+                        const [_, servicoNum, campo] = fieldType.split('_');
+                        const servicoIndex = parseInt(servicoNum) - 1;
+                        const servico = formData.servicos[servicoIndex];
+                        
+                        if (servico) {
+                            switch(campo) {
+                                case 'nome':
+                                    text = servico.nome;
+                                    break;
+                                case 'descricao':
+                                    text = servico.descricao;
+                                    break;
+                                case 'valor':
+                                    text = new Intl.NumberFormat('pt-BR', {
+                                        style: 'currency',
+                                        currency: 'BRL'
+                                    }).format(servico.valor);
+                                    break;
+                            }
+                        }
+                    }
+
+                    if (text) {
+                        firstPage.drawText(text, {
+                            x: pdfRect.x,
+                            y: pdfRect.y,
+                            size: fontSize,
+                            font: font,
+                            color: rgbColor
+                        });
+                    }
+                }
+
+                // Salvar e fazer download do PDF
+                const modifiedPdfBytes = await pdfDoc.save();
+                const blob = new Blob([modifiedPdfBytes], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `orcamento_${formData.cliente}.pdf`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+
+            } catch (error) {
+                console.error('Erro ao gerar PDF:', error);
+                alert('Erro ao gerar o orçamento: ' + error.message);
+            }
+        });
+
+        // Função auxiliar para converter coordenadas
+        function convertToPdfCoordinates(rect, page) {
+            const pdfPage = document.querySelector('.pdf-page');
+            const canvas = pdfPage.querySelector('canvas');
+            
+            const zoom = parseFloat(zoomControl.value) / 100;
+            const scale = page.getWidth() / canvas.width;
+            const pdfPageRect = pdfPage.getBoundingClientRect();
+            
+            return {
+                x: ((rect.left - pdfPageRect.left) / zoom) * scale,
+                y: page.getHeight() - (((rect.top - pdfPageRect.top) / zoom) * scale)
+            };
+        }
+
+        // Função auxiliar para converter cor hex para RGB para o PDF-Lib
+        function hexToRGBForPDF(hex) {
+            const r = parseInt(hex.slice(1, 3), 16) / 255;
+            const g = parseInt(hex.slice(3, 5), 16) / 255;
+            const b = parseInt(hex.slice(5, 7), 16) / 255;
+            return PDFLib.rgb(r, g, b);
+        }
+
+        // Modificar o JavaScript para usar os novos botões
+        function initializeFieldButtons() {
+            document.querySelectorAll('.add-field-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const fieldType = this.dataset.field;
+                    const fieldLabel = this.parentElement.querySelector('label').textContent;
+                    
+                    const pdfPage = document.querySelector('.pdf-page');
+                    if (!pdfPage) {
+                        alert('Por favor, carregue um PDF primeiro');
+                        return;
+                    }
+
+                    addTextFieldToPdf(fieldType, fieldLabel);
+                });
+            });
+        }
+
+        // Inicializar os botões existentes
+        initializeFieldButtons();
+
+        function addTextFieldToPdf(fieldType, fieldLabel) {
+            const pdfPage = document.querySelector('.pdf-page');
+            
+            const textField = document.createElement('div');
+            textField.className = 'text-field-marker';
+            
+            const textContent = document.createElement('span');
+            textContent.textContent = fieldLabel;
+            
+            const removeButton = document.createElement('button');
+            removeButton.className = 'remove-field';
+            removeButton.innerHTML = '×';
+            removeButton.onclick = (e) => {
+                e.stopPropagation();
+                textField.remove();
+            };
+
+            textField.appendChild(textContent);
+            textField.appendChild(removeButton);
+            
+            textField.setAttribute('data-field-type', fieldType);
+            textField.setAttribute('data-font-family', fontFamily.value);
+            textField.setAttribute('data-font-size', fontSize.value);
+            textField.setAttribute('data-font-bold', isBold);
+            textField.setAttribute('data-text-color', textColor.value);
+            
+            textField.style.color = textColor.value;
+            textField.style.fontFamily = fontFamily.value;
+            textField.style.fontSize = fontSize.value + 'px';
+            textField.style.fontWeight = isBold ? 'bold' : 'normal';
+            textField.style.position = 'absolute';
+            textField.style.left = '50px';
+            textField.style.top = '50px';
+            textField.style.zIndex = '100';
+            
+            pdfPage.appendChild(textField);
+            makeDraggable(textField);
+        }
+
+        // Adicionar listeners para atualização em tempo real
+        [fontFamily, fontSize, textColor].forEach(control => {
+            control.addEventListener('change', updateSelectedFieldStyles);
+            control.addEventListener('input', updateSelectedFieldStyles);
+        });
+
+        function updateSelectedFieldStyles() {
+            const fields = document.querySelectorAll('.text-field-marker');
+            fields.forEach(field => {
+                field.style.fontFamily = fontFamily.value;
+                field.style.fontSize = fontSize.value + 'px';
+                field.style.color = textColor.value;
+                
+                field.setAttribute('data-font-family', fontFamily.value);
+                field.setAttribute('data-font-size', fontSize.value);
+                field.setAttribute('data-text-color', textColor.value);
+            });
+        }
+
+        // Definir a cor padrão ao carregar a página
+        document.addEventListener('DOMContentLoaded', () => {
+            const textColor = document.getElementById('textColor');
+            textColor.value = '#d1d1d1';
+        });
+    </script>
+</body>
+</html>
